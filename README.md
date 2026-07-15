@@ -38,6 +38,25 @@ npm run dev             # starts server (:4000) and client (:5199) together
 Open http://localhost:5199. On first run the server seeds the database from `seed-data.js`
 (opening ฿3,587,191.60 · 695 payees · 402 cost centers · 6 departments · 137 May-2026 txns).
 
+## Authentication
+
+The app is gated by a login screen. The whole API (except `/api/login` and `/api/health`)
+requires a valid Bearer token issued at login.
+
+- Credentials live **only** in `server/.env` (git-ignored) — never committed:
+  ```
+  AUTH_USERNAME=...
+  AUTH_PASSWORD=...
+  SESSION_SECRET=<long random string>   # keeps sessions valid across restarts
+  ```
+  Copy `server/.env.example` to `server/.env` and fill it in (a working `.env` is already
+  present on the original machine).
+- On login the server verifies the credentials in constant time and returns an HMAC-signed
+  token (30-day expiry). The client stores it in `localStorage` and sends it as
+  `Authorization: Bearer <token>`. Any `401` drops the session back to the login screen.
+- **To change the password**, edit `server/AUTH_PASSWORD` in `server/.env` and restart the
+  server. No code change needed.
+
 Other scripts:
 - `npm run build` — production build of the client (`client/dist`)
 - `npm run seed:reset` — wipe the DB so it re-seeds from `seed-data.js` on next start
@@ -63,14 +82,21 @@ server-side (409 on clash).
   from the payee master by matching `payTo`/`shop` (ported from the prototype).
 
 ## Verified
-Typecheck + production build pass. End-to-end (Playwright, headless): all 7 views render with
-seeded data and **no console errors**; add (incl. creating a new cost center) → persists across
-reload → edit → delete → limit change all work against the live server; Thai voucher renders
-with correct baht-text.
+Typecheck + production build pass. End-to-end (Playwright, headless):
+- **Data/UI**: all 7 views render with seeded data and **no console errors**; add (incl.
+  creating a new cost center) → persists across reload → edit → delete → limit change all work
+  against the live server; Thai voucher renders with correct baht-text.
+- **Auth**: unauthenticated visit shows the login screen; wrong password is rejected; correct
+  credentials load the app and store a token; the session survives reload; logout clears it and
+  returns to login; an invalid/expired token is rejected. The API returns `401` without a token.
 
 ## Known gaps / follow-ups
-- **Auth**: none yet — the API is open on localhost. Add before any networked deployment.
-- **Backups**: the SQLite file is the only copy. Add a periodic file backup or the JSON
+- **Password strength**: the default password is short/numeric. For a public-facing or
+  multi-user setup, use a longer password (change `AUTH_PASSWORD` in `server/.env`) and
+  consider per-user accounts + password hashing at rest.
+- **Transport**: tokens travel in plain HTTP on localhost. Put the app behind HTTPS before any
+  networked deployment.
+- **Backups**: the SQLite file is the only copy. Add a periodic file backup or a JSON
   export/import escape hatch before relying on it for real records.
 - **Departments**: can be added but not renamed/deleted (matches the prototype).
 - **Concurrency**: last-write-wins; fine for the current single-user use.

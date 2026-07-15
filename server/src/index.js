@@ -1,11 +1,38 @@
 import express from 'express';
 import cors from 'cors';
-import { db, getFullDb, seedIfEmpty } from './db.js';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+// Load server/.env (git-ignored) before importing modules that read process.env.
+const envPath = join(dirname(fileURLToPath(import.meta.url)), '..', '.env');
+if (existsSync(envPath)) {
+  try { process.loadEnvFile(envPath); } catch (e) { console.warn('[env] failed to load .env:', e.message); }
+}
+
+const { db, getFullDb, seedIfEmpty } = await import('./db.js');
+const { checkCredentials, issueToken, requireAuth } = await import('./auth.js');
 
 const PORT = process.env.PORT || 4000;
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// ---- auth (public routes) ----
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body || {};
+  if (!checkCredentials(username, password)) {
+    return res.status(401).json({ error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+  }
+  res.json({ token: issueToken(username), username });
+});
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+// Everything registered below this line requires a valid Bearer token.
+app.use('/api', requireAuth);
+
+// ---- authenticated: confirm the session is valid ----
+app.get('/api/me', (req, res) => res.json({ username: req.user }));
 
 const created = seedIfEmpty();
 if (created) console.log('[db] seeded from seed-data.js');

@@ -1,4 +1,5 @@
 import { useApp, type View } from './store';
+import { useAuth } from './auth';
 import { css, HoverButton } from './ui';
 import { thaiDate } from './lib/format';
 import { DailyView } from './views/DailyView';
@@ -23,6 +24,7 @@ const NAV: [View, string, string][] = [
 
 export function App() {
   const app = useApp();
+  const auth = useAuth();
 
   if (app.loading) {
     return (
@@ -70,8 +72,20 @@ export function App() {
             );
           })}
         </nav>
-        <div style={css('padding:14px 22px 0;border-top:1px solid rgba(255,255,255,.12);font-size:11.5px;opacity:.6;line-height:1.7;')}>
-          ข้อมูลบันทึกบนเซิร์ฟเวอร์<br />อัปเดตล่าสุด {today}
+        <div style={css('padding:14px 16px 0;border-top:1px solid rgba(255,255,255,.12);')}>
+          <div style={css('display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 6px;')}>
+            <span style={css('font-size:12.5px;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;')}>👤 {auth.username || '—'}</span>
+            <HoverButton
+              onClick={() => auth.logout()}
+              base="border:1px solid rgba(255,255,255,.25);background:transparent;color:#eef3ec;font-family:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;cursor:pointer;flex:none;"
+              hover="background:rgba(255,255,255,.14);"
+            >
+              ออกจากระบบ
+            </HoverButton>
+          </div>
+          <div style={css('font-size:11.5px;opacity:.55;line-height:1.7;margin-top:10px;padding:0 6px;')}>
+            ข้อมูลบันทึกบนเซิร์ฟเวอร์<br />อัปเดตล่าสุด {today}
+          </div>
         </div>
       </aside>
 

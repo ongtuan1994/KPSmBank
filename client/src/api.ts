@@ -2,12 +2,31 @@ import type { Db, Payee, CostCenter, Txn } from './types';
 
 const BASE = '/api';
 
+let authToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
+}
+
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
   const res = await fetch(BASE + path, {
     method,
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+  if (res.status === 401) {
+    // token missing/expired/invalid — drop the session (except during an explicit login attempt)
+    if (path !== '/login') onUnauthorized?.();
+    const err = await res.json().catch(() => ({ error: 'unauthorized' }));
+    throw new Error(err.error || 'unauthorized');
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || `HTTP ${res.status}`);
@@ -19,6 +38,10 @@ export type TxnInput = Partial<Omit<Txn, 'id'>>;
 export type PayeeInput = Partial<Omit<Payee, 'id'>>;
 
 export const api = {
+  login: (username: string, password: string) =>
+    req<{ token: string; username: string }>('POST', '/login', { username, password }),
+  me: () => req<{ username: string }>('GET', '/me'),
+
   getDb: () => req<Db>('GET', '/db'),
 
   createTxn: (b: TxnInput) => req<Txn>('POST', '/txns', b),
