@@ -4,6 +4,9 @@
   "private": true,
   "description": "แพปลา KPS · Mobile Banking Portal — daily bank-transfer ledger",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "concurrently -n server,client -c green,cyan \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "npm --prefix server run dev",
@@ -11,7 +14,13 @@
     "build": "npm --prefix client run build",
     "start": "npm --prefix server start",
     "install:all": "npm install && npm --prefix server install && npm --prefix client install",
-    "seed:reset": "npm --prefix server run seed:reset"
+    "seed:reset": "npm --prefix server run seed:reset",
+    "seed:turso": "node --disable-warning=ExperimentalWarning server/src/seed-turso.js"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
