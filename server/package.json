@@ -1,0 +1,15 @@
+{
+  "name": "kps-mbank-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --disable-warning=ExperimentalWarning src/index.js",
+    "start": "node --disable-warning=ExperimentalWarning src/index.js",
+    "seed:reset": "node --disable-warning=ExperimentalWarning src/reset.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}

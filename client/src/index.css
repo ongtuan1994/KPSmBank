@@ -1,0 +1,33 @@
+:root {
+  --bg: #f6f3ec;
+  --surface: #fffdf8;
+  --ink: #2c2822;
+  --muted: #8a8072;
+  --line: #e7e1d5;
+  --pri: #3f7d4e;
+  --pri-d: #2f5f3c;
+  --pri-bg: #e9f0e8;
+  --acc: #c2683b;
+  --acc-bg: #f7e8dc;
+  --danger: #b1493a;
+  --warn: #c99a2e;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Sarabun, system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+a { color: #3f7d4e; }
+a:hover { color: #2f5f3c; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #d8d0c0; border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+input, select, button, textarea { font-family: inherit; }
+.mb-in::placeholder { color: #b3aa9a; }
+
+@media print {
+  html, body { background: #fff !important; }
+  .no-print { display: none !important; }
+  .sheet { box-shadow: none !important; border: none !important; margin: 0 !important; }
+  @page { margin: 10mm; }
+}
