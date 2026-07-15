@@ -38,6 +38,40 @@ npm run dev             # starts server (:4000) and client (:5199) together
 Open http://localhost:5199. On first run the server seeds the database from `seed-data.js`
 (opening ฿3,587,191.60 · 695 payees · 402 cost centers · 6 departments · 137 May-2026 txns).
 
+## Deployment (Vercel + Turso)
+
+**Live:** https://kps-mbank.vercel.app
+
+The app runs entirely on Vercel: the Vite build is served as static files and the Express API
+runs as a serverless function (`api/index.js`). Because serverless has no persistent disk, the
+database is **Turso** (libSQL, SQLite-compatible) instead of a local file.
+
+Config lives in `vercel.json` (build the client to `client/dist`, route `/api/*` to the
+function, bundle `seed-data.js`). Required Vercel environment variables (Production + Preview):
+
+| Variable | Purpose |
+|----------|---------|
+| `TURSO_DATABASE_URL` | Turso database URL (`libsql://…`) |
+| `TURSO_AUTH_TOKEN` | Turso auth token |
+| `AUTH_USERNAME`, `AUTH_PASSWORD` | login credentials |
+| `SESSION_SECRET` | signs session tokens |
+
+Redeploy after code changes:
+
+```bash
+vercel --prod        # deploy current code to production
+vercel deploy        # preview deploy (test before promoting)
+```
+
+Seed the production database once (already done for the current DB):
+
+```bash
+TURSO_DATABASE_URL=... TURSO_AUTH_TOKEN=... npm run seed:turso
+```
+
+To change the login password in production: `vercel env rm AUTH_PASSWORD production`, then
+`vercel env add AUTH_PASSWORD production` with the new value, and redeploy (`vercel --prod`).
+
 ## Authentication
 
 The app is gated by a login screen. The whole API (except `/api/login` and `/api/health`)

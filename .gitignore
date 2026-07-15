@@ -7,3 +7,8 @@ dist/
 server/data/*.db
 server/data/*.db-*
 .DS_Store
+
+.vercel
+
+.vercel
+.env*
