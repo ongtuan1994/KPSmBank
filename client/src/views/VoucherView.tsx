@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { css } from '../ui';
 import { money, thaiDate, bahtText } from '../lib/format';
@@ -6,6 +7,46 @@ export function VoucherView() {
   const app = useApp();
   const { db, voucherId } = app;
   const t = db.txns.find((x) => x.id === voucherId) || null;
+
+  /* Measure the rendered sheet and compute a print scale so the voucher always
+     fits inside ONE A5-landscape page (210×148mm, 7mm margins). We scale via
+     transform inside a sized wrapper (reliable pagination) and set A5 landscape
+     via an injected @page, so it works even where named pages don't. */
+  const SHEET_W = 820;
+  const MH = 0.5;  // left/right page margin (mm) — frame sits close to the edges
+  const MV = 1;    // top/bottom page margin (mm) — kept small so it can fill width
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ s: 1, h: 0 });
+  useLayoutEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const pxPerMm = 96 / 25.4;
+    const availW = (210 - 2 * MH) * pxPerMm; // A5 landscape content width
+    const availH = (148 - 2 * MV) * pxPerMm; // A5 landscape content height
+    const prevW = el.style.width;
+    el.style.width = SHEET_W + 'px';         // measure at the print width
+    // Measure with the blank placeholder rows collapsed (as they print).
+    const fillers = Array.from(el.querySelectorAll('tbody tr')).slice(1) as HTMLElement[];
+    const saved = fillers.map((r) => r.style.height);
+    fillers.forEach((r) => { r.style.height = '18px'; });
+    const h = el.offsetHeight;
+    fillers.forEach((r, i) => { r.style.height = saved[i]; });
+    el.style.width = prevW;
+    const s = Math.round(Math.min(availW / SHEET_W, availH / h) * 0.96 * 1000) / 1000; // 4% safety
+    setFit({ s, h });
+  }, [voucherId, t?.pay, t?.recv]);
+  const printCss = `@media print {
+    @page { size: A5 landscape; margin: ${MV}mm ${MH}mm; }
+    /* collapse the app shell (min-height:100vh + main padding) so ONLY the
+       voucher prints — otherwise the 100vh shell spills a blank 2nd page. */
+    html, body { height: auto !important; }
+    #root, #root > * { min-height: 0 !important; height: auto !important; display: block !important; }
+    main { padding: 0 !important; min-height: 0 !important; }
+    .voucher-page { padding: 0 !important; }
+    .voucher-fit { width: ${(SHEET_W * fit.s).toFixed(1)}px !important; height: ${(fit.h * fit.s).toFixed(1)}px !important; margin: 0 auto !important; overflow: hidden !important; }
+    .voucher-sheet { transform: scale(${fit.s}); transform-origin: top left; width: ${SHEET_W}px !important; max-width: ${SHEET_W}px !important; margin: 0 !important; border: 1.2px solid var(--pri-d) !important; box-shadow: none !important; }
+    .voucher-sheet tbody tr:nth-child(n + 2) { height: 18px !important; }
+  }`;
 
   let bank = t?.bank || '';
   let acct = t?.acct || '';
@@ -29,12 +70,14 @@ export function VoucherView() {
   };
 
   return (
-    <div style={css('padding:30px 38px;')}>
+    <div className="voucher-page" style={css('padding:30px 38px;')}>
+      <style>{printCss}</style>
       <div className="no-print" style={css('display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;max-width:820px;')}>
         <button onClick={() => app.backFromVoucher()} style={css('border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 16px;font-family:inherit;font-size:14px;cursor:pointer;color:var(--ink);')}>‹ กลับ</button>
         <button onClick={() => window.print()} style={css('background:var(--pri-d);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;')}>🖨 พิมพ์ใบสำคัญจ่าย</button>
       </div>
-      <div className="sheet" style={css('background:#fff;border:1.5px solid var(--pri-d);border-radius:10px;max-width:820px;margin:0 auto;font-size:13.5px;color:#2c2822;overflow:hidden;')}>
+      <div className="voucher-fit">
+      <div ref={sheetRef} className="sheet voucher-sheet" style={css('background:#fff;border:1.5px solid var(--pri-d);border-radius:10px;max-width:820px;margin:0 auto;font-size:13.5px;color:#2c2822;overflow:hidden;')}>
         {/* logo band */}
         <div style={css('display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:16px 26px 10px;')}>
           <div></div>
@@ -132,6 +175,7 @@ export function VoucherView() {
             <div style={css('text-align:left;color:var(--pri-d);margin-top:6px;')}>วันที่ <span style={css('color:var(--muted);font-size:10.5px;')}>Date</span></div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

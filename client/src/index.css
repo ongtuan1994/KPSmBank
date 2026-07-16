@@ -30,4 +30,7 @@ input, select, button, textarea { font-family: inherit; }
   .no-print { display: none !important; }
   .sheet { box-shadow: none !important; border: none !important; margin: 0 !important; }
   @page { margin: 10mm; }
+  /* The ใบสำคัญจ่าย print rules (A5 landscape + measured scale-to-fit-one-page)
+     are injected by VoucherView while it is mounted, so they don't affect
+     other views (e.g. Reports print A4 as before). */
 }
