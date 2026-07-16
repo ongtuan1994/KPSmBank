@@ -7,9 +7,9 @@ import type { Txn } from '../types';
 export function AnalyticsView() {
   const { db } = useApp();
   const dates = useMemo(() => db.txns.map((t) => t.date).filter(Boolean).sort(), [db]);
-  const first = dates[0] || '2026-05-01';
   const last = dates[dates.length - 1] || '2026-05-30';
-  const [anFrom, setAnFrom] = useState(first);
+  // Default the range to the LATEST month (1st of that month → last date).
+  const [anFrom, setAnFrom] = useState(last.slice(0, 7) + '-01');
   const [anTo, setAnTo] = useState(last);
 
   // ported from DCLogic.analyticsRows: enrich bank/acct from payee master when missing

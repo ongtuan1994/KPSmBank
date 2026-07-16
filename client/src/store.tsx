@@ -114,7 +114,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   const [view, setView] = useState<View>('daily');
-  const [date, setDate] = useState('2026-05-30');
+  // Default the daily view to TODAY (local date), not a fixed past date.
+  const [date, setDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [modal, setModal] = useState<Modal>(null);
   const [editId, setEditId] = useState<number | null>(null);
   const [voucherId, setVoucherId] = useState<number | null>(null);

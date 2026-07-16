@@ -159,9 +159,18 @@ function MonthlyReport({ db, reportMonth, det, ccDept }: { db: ReturnType<typeof
 
   return (
     <div className="sheet" style={css('background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:30px 34px;max-width:900px;')}>
-      <div style={css('text-align:center;margin-bottom:6px;font-weight:700;font-size:19px;')}>รายงานการโอนเงินรายเดือน (จัดกลุ่มตามแผนก)</div>
-      <div style={css('text-align:center;color:var(--muted);font-size:14px;margin-bottom:18px;')}>แพปลา KPS · {`${MN[m - 1]} ${y + 543}`}</div>
-      <div style={css('display:flex;justify-content:flex-end;margin-bottom:20px;')}>
+      <div style={css('text-align:center;margin-bottom:6px;font-weight:700;font-size:19px;')}>รายการโอน Bualuang Mbanking</div>
+      <div style={css('text-align:center;color:var(--muted);font-size:14px;margin-bottom:18px;')}>ประจำเดือน {MN[m - 1]} ปี {y + 543}</div>
+      <table style={css('width:100%;border-collapse:collapse;font-size:13px;')}>
+        <thead><tr style={css('border-bottom:2px solid var(--ink);text-align:left;')}><th style={css('padding:8px;font-weight:600;width:52px;text-align:center;')}>ลำดับ</th><th style={css('padding:8px;font-weight:600;')}>ชื่อบัญชี / แผนก</th>{det && <th style={css('padding:8px;font-weight:600;text-align:right;')}>รับ</th>}<th style={css('padding:8px;font-weight:600;text-align:right;')}>จ่าย</th></tr></thead>
+        <tbody>
+          {groups.map((g, gi) => (
+            <ReactFragmentGroup key={gi} g={g} det={det} dividerSpan={dividerSpan} />
+          ))}
+        </tbody>
+        <tfoot><tr style={css('border-top:2px solid var(--ink);font-weight:700;')}><td colSpan={2} style={css('padding:10px 8px;')}>รวมทั้งสิ้น</td>{det && <td style={css("padding:10px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--pri);")}>{money(monthIn)}</td>}<td style={css("padding:10px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--acc);")}>{money(monthOut)}</td></tr></tfoot>
+      </table>
+      <div style={css('display:flex;justify-content:flex-end;margin-top:24px;')}>
         <div style={css('min-width:360px;border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13.5px;')}>
           <div style={css('display:flex;justify-content:space-between;gap:24px;padding:9px 16px;border-bottom:1px solid var(--line);')}>
             <span>ยอดยกมา <span style={css('color:var(--muted);font-size:12px;')}>(ก่อนรายการโอนแรกของเดือน)</span></span>
@@ -181,15 +190,6 @@ function MonthlyReport({ db, reportMonth, det, ccDept }: { db: ReturnType<typeof
           </div>
         </div>
       </div>
-      <table style={css('width:100%;border-collapse:collapse;font-size:13px;')}>
-        <thead><tr style={css('border-bottom:2px solid var(--ink);text-align:left;')}><th style={css('padding:8px;font-weight:600;width:52px;text-align:center;')}>ลำดับ</th><th style={css('padding:8px;font-weight:600;')}>ชื่อบัญชี / แผนก</th>{det && <th style={css('padding:8px;font-weight:600;text-align:right;')}>รับ</th>}<th style={css('padding:8px;font-weight:600;text-align:right;')}>จ่าย</th></tr></thead>
-        <tbody>
-          {groups.map((g, gi) => (
-            <ReactFragmentGroup key={gi} g={g} det={det} dividerSpan={dividerSpan} />
-          ))}
-        </tbody>
-        <tfoot><tr style={css('border-top:2px solid var(--ink);font-weight:700;')}><td colSpan={2} style={css('padding:10px 8px;')}>รวมทั้งสิ้น</td>{det && <td style={css("padding:10px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--pri);")}>{money(monthIn)}</td>}<td style={css("padding:10px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--acc);")}>{money(monthOut)}</td></tr></tfoot>
-      </table>
     </div>
   );
 }
