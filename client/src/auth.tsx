@@ -7,6 +7,7 @@ interface AuthCtx {
   authed: boolean;
   checking: boolean;
   username: string | null;
+  welcome: number; // bumps on each fresh login (used to show the welcome pop-up)
   login: (username: string, password: string) => Promise<string | null>; // returns error message or null
   logout: () => void;
 }
@@ -23,6 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
   const [username, setUsername] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
+  const [welcome, setWelcome] = useState(0);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
@@ -69,12 +71,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthToken(res.token);
       setToken(res.token);
       setUsername(res.username);
+      setWelcome((w) => w + 1); // trigger the welcome pop-up on fresh login
       return null;
     } catch (e) {
       return e instanceof Error ? e.message : 'เข้าสู่ระบบไม่สำเร็จ';
     }
   }, []);
 
-  const value: AuthCtx = { authed: !!token, checking, username, login, logout };
+  const value: AuthCtx = { authed: !!token, checking, username, welcome, login, logout };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

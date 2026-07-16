@@ -25,6 +25,16 @@ a:hover { color: #2f5f3c; }
 input, select, button, textarea { font-family: inherit; }
 .mb-in::placeholder { color: #b3aa9a; }
 
+/* Welcome pop-up on login: fade+pop in, hold, fade out over 3s */
+@keyframes welcomeToast {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(.9); }
+  12%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  85%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(.98); }
+}
+.welcome-toast { animation: welcomeToast 3s ease forwards; }
+@keyframes welcomeSpin { from { transform: rotate(-12deg); } to { transform: rotate(12deg); } }
+
 @media print {
   html, body { background: #fff !important; }
   .no-print { display: none !important; }

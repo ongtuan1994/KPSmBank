@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useApp, type View } from './store';
 import { useAuth } from './auth';
 import { css, HoverButton } from './ui';
@@ -12,6 +13,41 @@ import { VoucherView } from './views/VoucherView';
 import { TransferModal } from './modals/TransferModal';
 import { PayeeModal } from './modals/PayeeModal';
 import { LimitModal } from './modals/LimitModal';
+
+/* Friendly display names for login usernames (login itself is unchanged). */
+const DISPLAY_NAMES: Record<string, string> = { gife1990: 'คุณกิ๊ฟ' };
+const displayName = (u: string | null) => (u ? DISPLAY_NAMES[u] || u : '—');
+
+/* Cute themed welcome pop-up shown for 3s on each fresh login. */
+function WelcomeToast() {
+  const { welcome, username } = useAuth();
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!welcome) return;
+    setShow(true);
+    const t = setTimeout(() => setShow(false), 3000);
+    return () => clearTimeout(t);
+  }, [welcome]);
+  if (!show) return null;
+  return (
+    <div
+      className="welcome-toast"
+      style={css('position:fixed;top:26px;left:50%;z-index:2000;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 16px 38px rgba(47,95,60,.22);padding:14px 22px 14px 14px;display:flex;align-items:center;gap:13px;max-width:calc(100vw - 32px);')}
+    >
+      <img
+        src="/avatar.png"
+        alt=""
+        style={css('width:48px;height:48px;border-radius:50%;object-fit:cover;object-position:50% 62%;flex:none;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.10);')}
+      />
+      <div style={css('min-width:0;')}>
+        <div style={css('font-weight:700;color:var(--pri-d);font-size:15.5px;')}>
+          สวัสดี {displayName(username)} <span style={css('display:inline-block;animation:welcomeSpin .7s ease-in-out infinite alternate;')}>🌸</span>
+        </div>
+        <div style={css('color:var(--muted);font-size:13px;margin-top:2px;')}>ขอให้วันนี้เป็นวันที่ดีของคุณนะคะ ✨</div>
+      </div>
+    </div>
+  );
+}
 
 const NAV: [View, string, string][] = [
   ['daily', 'โอนรายวัน', '🧾'],
@@ -74,7 +110,10 @@ export function App() {
         </nav>
         <div style={css('padding:14px 16px 0;border-top:1px solid rgba(255,255,255,.12);')}>
           <div style={css('display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 6px;')}>
-            <span style={css('font-size:12.5px;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;')}>👤 {auth.username || '—'}</span>
+            <span style={css('display:inline-flex;align-items:center;gap:7px;min-width:0;font-size:12.5px;opacity:.9;')}>
+              <img src="/avatar.png" alt="" style={css('width:34px;height:34px;border-radius:50%;object-fit:cover;object-position:50% 62%;flex:none;background:#fff;')} />
+              <span style={css('overflow:hidden;text-overflow:ellipsis;white-space:nowrap;')}>{displayName(auth.username)}</span>
+            </span>
             <HoverButton
               onClick={() => auth.logout()}
               base="border:1px solid rgba(255,255,255,.25);background:transparent;color:#eef3ec;font-family:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;cursor:pointer;flex:none;"
@@ -103,6 +142,8 @@ export function App() {
       {app.modal === 'transfer' && <TransferModal />}
       {app.modal === 'payee' && <PayeeModal />}
       {app.modal === 'limit' && <LimitModal />}
+
+      <WelcomeToast />
     </div>
   );
 }
