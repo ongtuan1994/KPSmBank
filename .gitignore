@@ -12,3 +12,4 @@ server/data/*.db-*
 
 .vercel
 .env*
+server/prod-backup-*.json
