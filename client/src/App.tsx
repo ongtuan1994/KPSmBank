@@ -82,10 +82,10 @@ export function App() {
   const today = thaiDate(new Date().toISOString().slice(0, 10));
 
   return (
-    <div style={css('min-height:100vh;display:flex;')}>
+    <div className="app-shell" style={css('min-height:100vh;display:flex;')}>
       {/* SIDEBAR */}
       <aside
-        className="no-print"
+        className="no-print app-sidebar"
         style={css('width:236px;flex:none;background:var(--pri-d);color:#eef3ec;min-height:100vh;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:22px 0;')}
       >
         <div style={css('padding:0 22px 20px;border-bottom:1px solid rgba(255,255,255,.12);')}>
@@ -129,7 +129,7 @@ export function App() {
       </aside>
 
       {/* MAIN */}
-      <main style={css('flex:1;min-width:0;padding:0 0 60px;')}>
+      <main className="app-main" style={css('flex:1;min-width:0;padding:0 0 60px;')}>
         {view === 'daily' && <DailyView />}
         {view === 'summary' && <SummaryView />}
         {view === 'analytics' && <AnalyticsView />}

@@ -69,7 +69,7 @@ export function TransferModal() {
           </label>
 
           <label style={css(label + 'grid-column:1 / -1;position:relative;')}>ชื่อบัญชี (Cost Center)
-            <input className="mb-in" value={f.cc} onChange={(e) => { patch({ cc: e.target.value, addCc: false }); setShowCcList(true); setShowPayeeList(false); }} onFocus={() => { setShowCcList(true); setShowPayeeList(false); }} placeholder="พิมพ์เพื่อค้นหา หรือเลือกชื่อบัญชี…" style={css(field)} />
+            <input className="mb-in" value={f.cc} onChange={(e) => { patch({ cc: e.target.value, addCc: false }); setShowCcList(true); setShowPayeeList(false); }} onFocus={() => { setShowCcList(true); setShowPayeeList(false); }} onBlur={() => setTimeout(() => setShowCcList(false), 150)} placeholder="พิมพ์เพื่อค้นหา หรือเลือกชื่อบัญชี…" style={css(field)} />
             {showCcList && !f.addCc && (
               <div style={css('position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.16);max-height:220px;overflow-y:auto;z-index:6;margin-top:4px;')}>
                 {ccMatches.map((c) => (
@@ -93,7 +93,7 @@ export function TransferModal() {
           )}
 
           <label style={css(label + 'grid-column:1 / -1;position:relative;')}>จ่ายให้ / ผู้รับ
-            <input className="mb-in" value={f.payeeQuery} onChange={(e) => { patch({ payeeQuery: e.target.value, payTo: '', bank: '', acct: '' }); setShowPayeeList(true); setShowCcList(false); }} onFocus={() => { setShowPayeeList(true); setShowCcList(false); }} placeholder="พิมพ์เพื่อค้นหาจาก Master Data…" style={css(field)} />
+            <input className="mb-in" value={f.payeeQuery} onChange={(e) => { patch({ payeeQuery: e.target.value, payTo: '', bank: '', acct: '' }); setShowPayeeList(true); setShowCcList(false); }} onFocus={() => { setShowPayeeList(true); setShowCcList(false); }} onBlur={() => setTimeout(() => setShowPayeeList(false), 150)} placeholder="พิมพ์เพื่อค้นหาจาก Master Data…" style={css(field)} />
             {showPayeeList && !f.addPayee && (
               <div style={css('position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.16);max-height:220px;overflow-y:auto;z-index:5;margin-top:4px;')}>
                 {payeeMatches.map((p) => (

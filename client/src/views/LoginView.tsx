@@ -24,8 +24,8 @@ export function LoginView() {
   const labelStyle = 'display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);font-weight:600;';
 
   return (
-    <div style={css('min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);')}>
-      <div style={css('width:400px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 20px 60px rgba(44,40,34,.12);padding:34px 32px 30px;')}>
+    <div className="login-wrap" style={css('min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);')}>
+      <div className="login-card" style={css('width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 20px 60px rgba(44,40,34,.12);padding:34px 32px 30px;box-sizing:border-box;')}>
         <div style={css('display:flex;justify-content:center;margin-bottom:10px;')}>
           <KpsLogo width={230} />
         </div>

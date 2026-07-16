@@ -35,6 +35,33 @@ input, select, button, textarea { font-family: inherit; }
 .welcome-toast { animation: welcomeToast 3s ease forwards; }
 @keyframes welcomeSpin { from { transform: rotate(-12deg); } to { transform: rotate(12deg); } }
 
+/* ---- Mobile / narrow screens: keep the layout balanced, not broken ---- */
+@media (max-width: 760px) {
+  /* app shell: sidebar becomes a compact top bar, content goes full width */
+  .app-shell { flex-direction: column !important; }
+  .app-sidebar {
+    width: 100% !important; min-height: 0 !important; height: auto !important;
+    position: sticky !important; top: 0 !important; z-index: 50 !important; padding: 8px 12px !important;
+  }
+  .app-sidebar > div:first-child { padding: 4px 6px 8px !important; border-bottom: none !important; }
+  .app-sidebar > nav {
+    flex-direction: row !important; overflow-x: auto !important;
+    flex: none !important; padding: 4px 0 !important; gap: 6px !important;
+  }
+  .app-sidebar > nav button { white-space: nowrap !important; flex: 0 0 auto !important; }
+  .app-sidebar > div:last-child { padding: 8px 6px 2px !important; }
+  .app-sidebar > div:last-child > div:last-child { display: none !important; } /* hide verbose "อัปเดตล่าสุด" line */
+
+  /* views: tighter padding + stack multi-column grids */
+  .app-main > div { padding: 16px 14px !important; }
+  .app-main div[style*="repeat(3"] { grid-template-columns: 1fr !important; }
+  .app-main div[style*="repeat(4"] { grid-template-columns: 1fr 1fr !important; }
+
+  /* login card fits small screens */
+  .login-wrap { padding: 16px !important; }
+  .login-card { padding: 26px 20px 22px !important; }
+}
+
 @media print {
   html, body { background: #fff !important; }
   .no-print { display: none !important; }
