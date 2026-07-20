@@ -66,6 +66,33 @@ export function createApp() {
     res.json({ departments });
   }));
 
+  /* Rename a department. `dept` on cost_centers is a plain text reference (no
+     FK), so the rename has to cascade or every account silently falls out of
+     the group. */
+  app.patch('/api/departments/:name', wrap(async (req, res) => {
+    const from = String(req.params.name || '');
+    const to = String(req.body.name || '').trim();
+    if (!to) return res.status(400).json({ error: 'name required' });
+    const exists = first(await client.execute({ sql: 'SELECT 1 AS x FROM departments WHERE name = ?', args: [from] }));
+    if (!exists) return res.status(404).json({ error: 'department not found' });
+    if (to !== from) {
+      const clash = first(await client.execute({ sql: 'SELECT 1 AS x FROM departments WHERE name = ?', args: [to] }));
+      if (clash) return res.status(409).json({ error: 'มีแผนกชื่อนี้อยู่แล้ว' });
+      await client.execute({ sql: 'UPDATE departments SET name = ? WHERE name = ?', args: [to, from] });
+      await client.execute({ sql: 'UPDATE cost_centers SET dept = ? WHERE dept = ?', args: [to, from] });
+    }
+    res.json(await getFullDb());
+  }));
+
+  /* Delete a department; its accounts are kept and moved to "ไม่ระบุแผนก"
+     (dept = '') rather than being deleted along with it. */
+  app.delete('/api/departments/:name', wrap(async (req, res) => {
+    const name = String(req.params.name || '');
+    await client.execute({ sql: 'UPDATE cost_centers SET dept = ? WHERE dept = ?', args: ['', name] });
+    await client.execute({ sql: 'DELETE FROM departments WHERE name = ?', args: [name] });
+    res.json(await getFullDb());
+  }));
+
   // ---- cost centers ----
   app.post('/api/cost-centers', wrap(async (req, res) => {
     const name = String(req.body.name || '').trim();
@@ -79,8 +106,24 @@ export function createApp() {
 
   app.patch('/api/cost-centers/:id', wrap(async (req, res) => {
     const id = +req.params.id;
-    await client.execute({ sql: 'UPDATE cost_centers SET dept = ? WHERE id = ?', args: [String(req.body.dept || ''), id] });
-    res.json(first(await client.execute({ sql: 'SELECT id, name, dept FROM cost_centers WHERE id = ?', args: [id] })));
+    const row = first(await client.execute({ sql: 'SELECT id, name, dept FROM cost_centers WHERE id = ?', args: [id] }));
+    if (!row) return res.status(404).json({ error: 'cost center not found' });
+
+    if (req.body.name !== undefined) {
+      const to = String(req.body.name).trim();
+      if (!to) return res.status(400).json({ error: 'name required' });
+      if (to !== row.name) {
+        const clash = first(await client.execute({ sql: 'SELECT 1 AS x FROM cost_centers WHERE name = ? AND id <> ?', args: [to, id] }));
+        if (clash) return res.status(409).json({ error: 'มีชื่อบัญชีนี้อยู่แล้ว' });
+        await client.execute({ sql: 'UPDATE cost_centers SET name = ? WHERE id = ?', args: [to, id] });
+        // txns.cc references the account by name — carry history over with it
+        await client.execute({ sql: 'UPDATE txns SET cc = ? WHERE cc = ?', args: [to, row.name] });
+      }
+    }
+    if (req.body.dept !== undefined) {
+      await client.execute({ sql: 'UPDATE cost_centers SET dept = ? WHERE id = ?', args: [String(req.body.dept || ''), id] });
+    }
+    res.json(await getFullDb());
   }));
 
   app.delete('/api/cost-centers/:id', wrap(async (req, res) => {

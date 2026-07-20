@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../store';
-import { css } from '../ui';
+import { css, HoverButton } from '../ui';
 import { money } from '../lib/format';
+import { balanceMap } from '../lib/compute';
 import type { Db } from '../types';
 
 const MN = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
@@ -80,6 +81,24 @@ export function SummaryView() {
 
   const [sy, sm] = summaryMonth.split('-').map(Number);
 
+  /** Step the selected month by ±1, rolling the year over at the boundaries. */
+  const shiftMonth = (delta: number) => {
+    const d = new Date(sy, sm - 1 + delta, 1);
+    setSummaryMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  };
+
+  // Account balance as of the END of the selected month (running balance of the
+  // last txn on or before that month, else the opening balance).
+  const bmap = useMemo(() => balanceMap(db), [db]);
+  const balance = useMemo(() => {
+    const upTo = [...db.txns]
+      .filter((t) => t.date && t.date.slice(0, 7) <= summaryMonth)
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ord || 0) - (b.ord || 0)));
+    return upTo.length ? bmap[upTo[upTo.length - 1].id] : db.opening;
+  }, [db.txns, db.opening, bmap, summaryMonth]);
+
+  const stepBtn = 'width:38px;height:38px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);background:var(--surface);border-radius:9px;font-family:inherit;font-size:16px;color:var(--pri-d);cursor:pointer;';
+
   return (
     <div style={css('padding:30px 38px;')}>
       <div style={css('display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px;')}>
@@ -89,11 +108,15 @@ export function SummaryView() {
         </div>
         <div style={css('display:flex;gap:10px;')}>
           <input className="mb-in" value={summarySearch} onChange={(e) => setSummarySearch(e.target.value)} placeholder="ค้นหาชื่อบัญชี / แผนก…" style={css('width:260px;height:38px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:0 14px;font-family:inherit;font-size:14px;color:var(--ink);')} />
-          <input type="month" value={summaryMonth} onChange={(e) => setSummaryMonth(e.target.value)} style={css('height:38px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:0 12px;font-family:inherit;font-size:14px;color:var(--ink);')} />
+          <div style={css('display:flex;gap:6px;align-items:center;')}>
+            <HoverButton onClick={() => shiftMonth(-1)} title="เดือนก่อนหน้า" aria-label="เดือนก่อนหน้า" base={stepBtn} hover="background:var(--pri-bg);">‹</HoverButton>
+            <input type="month" value={summaryMonth} onChange={(e) => setSummaryMonth(e.target.value)} style={css('height:38px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:0 12px;font-family:inherit;font-size:14px;color:var(--ink);')} />
+            <HoverButton onClick={() => shiftMonth(1)} title="เดือนถัดไป" aria-label="เดือนถัดไป" base={stepBtn} hover="background:var(--pri-bg);">›</HoverButton>
+          </div>
         </div>
       </div>
 
-      <div style={css('display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;')}>
+      <div style={css('display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;')}>
         <div style={css('background:var(--pri);color:#eef3ec;border-radius:14px;padding:16px 18px;')}>
           <div style={css('font-size:12.5px;opacity:.85;margin-bottom:8px;')}>ยอดรับสะสมรวม · {`${MN[sm - 1]} ${sy + 543}`}</div>
           <div style={css("font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;")}>฿{money(recv.grand)}</div>
@@ -105,6 +128,11 @@ export function SummaryView() {
         <div style={css('background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;')}>
           <div style={css('font-size:12.5px;color:var(--muted);margin-bottom:8px;')}>คงเหลือสุทธิ (รับ − โอน)</div>
           <div style={css(`font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:${net < 0 ? 'var(--danger)' : 'var(--pri-d)'};`)}>฿{money(net)}</div>
+        </div>
+        <div style={css('background:var(--pri-d);color:#eef3ec;border-radius:14px;padding:16px 18px;')}>
+          <div style={css('font-size:12.5px;opacity:.75;margin-bottom:8px;')}>ยอดเงินคงเหลือในบัญชี</div>
+          <div style={css("font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;")}>฿{money(balance)}</div>
+          <div style={css('font-size:11.5px;opacity:.6;margin-top:6px;')}>ณ สิ้นเดือน {`${MN[sm - 1]} ${sy + 543}`}</div>
         </div>
       </div>
 

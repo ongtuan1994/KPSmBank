@@ -54,10 +54,14 @@ export const api = {
   togglePayee: (id: number) => req<Payee>('POST', `/payees/${id}/toggle`),
 
   createCostCenter: (b: { name: string; dept?: string }) => req<CostCenter>('POST', '/cost-centers', b),
-  updateCostCenter: (id: number, dept: string) => req<CostCenter>('PATCH', `/cost-centers/${id}`, { dept }),
+  updateCostCenter: (id: number, dept: string) => req<Db>('PATCH', `/cost-centers/${id}`, { dept }),
+  // renaming cascades to txns.cc on the server, so it returns the whole db
+  renameCostCenter: (id: number, name: string) => req<Db>('PATCH', `/cost-centers/${id}`, { name }),
   deleteCostCenter: (id: number) => req<{ ok: true }>('DELETE', `/cost-centers/${id}`),
 
   addDepartment: (name: string) => req<{ departments: string[] }>('POST', '/departments', { name }),
+  renameDepartment: (from: string, to: string) => req<Db>('PATCH', `/departments/${encodeURIComponent(from)}`, { name: to }),
+  deleteDepartment: (name: string) => req<Db>('DELETE', `/departments/${encodeURIComponent(name)}`),
 
   setSettings: (b: { opening?: number; dailyLimit?: number }) =>
     req<{ opening: number; dailyLimit: number }>('PUT', '/settings', b),

@@ -6,6 +6,8 @@ import { money, money0, thaiDate, thaiDateFull } from '../lib/format';
 const MN = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 const MH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const UNA = 'ไม่ระบุแผนก';
+const YEARS = [2568, 2569, 2570];
+const pad = (n: number) => String(n).padStart(2, '0');
 
 type ReportTab = 'daily' | 'monthly' | 'yearly';
 interface MonthGroup {
@@ -29,6 +31,34 @@ export function ReportsView() {
   const ccDept: Record<string, string> = {};
   db.costCenters.forEach((c) => { ccDept[c.name] = c.dept || UNA; });
 
+  /* Step the period shown by the active tab: ±1 day / month / year. */
+  const shift = (delta: number) => {
+    if (tab === 'daily') {
+      const d = new Date(reportDate + 'T00:00:00');
+      d.setDate(d.getDate() + delta);
+      setReportDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+    } else if (tab === 'monthly') {
+      const [y, m] = reportMonth.split('-').map(Number);
+      const d = new Date(y, m - 1 + delta, 1);
+      setReportMonth(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`);
+    } else {
+      // the year picker only offers YEARS, so don't step past either end
+      setReportYear((y) => Math.min(YEARS[YEARS.length - 1], Math.max(YEARS[0], y + delta)));
+    }
+  };
+  const atEnd = (delta: number) =>
+    tab === 'yearly' && (delta < 0 ? reportYear <= YEARS[0] : reportYear >= YEARS[YEARS.length - 1]);
+  const stepLabel = tab === 'daily' ? 'วัน' : tab === 'monthly' ? 'เดือน' : 'ปี';
+  const stepBtn = (delta: number) => (
+    <button
+      onClick={() => shift(delta)}
+      disabled={atEnd(delta)}
+      title={`${delta < 0 ? `${stepLabel}ก่อนหน้า` : `${stepLabel}ถัดไป`}`}
+      aria-label={`${delta < 0 ? `${stepLabel}ก่อนหน้า` : `${stepLabel}ถัดไป`}`}
+      style={css('width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);background:var(--surface);border-radius:9px;font-family:inherit;font-size:16px;color:var(--pri-d);' + (atEnd(delta) ? 'opacity:.35;cursor:default;' : 'cursor:pointer;'))}
+    >{delta < 0 ? '‹' : '›'}</button>
+  );
+
   const doPrint = () => window.print();
   const tabBtn = (k: ReportTab, labelTh: string) => (
     <button key={k} onClick={() => setTab(k)} style={css(`border:none;background:${tab === k ? 'var(--pri-d)' : 'transparent'};color:${tab === k ? '#fff' : 'var(--muted)'};font-family:inherit;font-size:14px;font-weight:600;padding:7px 18px;border-radius:7px;cursor:pointer;`)}>{labelTh}</button>
@@ -48,10 +78,20 @@ export function ReportsView() {
         <div style={css('display:flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px;')}>
           {tabBtn('daily', 'รายวัน')}{tabBtn('monthly', 'รายเดือน')}{tabBtn('yearly', 'รายปี')}
         </div>
-        {tab === 'daily' && <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} style={css(inputStyle)} />}
+        {tab === 'daily' && (
+          <div style={css('display:flex;gap:6px;align-items:center;')}>
+            {stepBtn(-1)}
+            <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} style={css(inputStyle)} />
+            {stepBtn(1)}
+          </div>
+        )}
         {tab === 'monthly' && (
           <>
-            <input type="month" value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} style={css(inputStyle)} />
+            <div style={css('display:flex;gap:6px;align-items:center;')}>
+              {stepBtn(-1)}
+              <input type="month" value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} style={css(inputStyle)} />
+              {stepBtn(1)}
+            </div>
             <div style={css('display:flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px;')}>
               {[['สรุปรวมกลุ่ม', false], ['แจกแจงในกลุ่ม', true]].map(([label, v]) => (
                 <button key={String(v)} onClick={() => setMonthlyDetail(v as boolean)} style={css(`border:none;background:${monthlyDetail === v ? 'var(--pri-d)' : 'transparent'};color:${monthlyDetail === v ? '#fff' : 'var(--muted)'};font-family:inherit;font-size:13.5px;font-weight:600;padding:7px 16px;border-radius:7px;cursor:pointer;`)}>{label as string}</button>
@@ -60,9 +100,13 @@ export function ReportsView() {
           </>
         )}
         {tab === 'yearly' && (
-          <select value={reportYear} onChange={(e) => setReportYear(+e.target.value)} style={css(inputStyle)}>
-            {[2568, 2569, 2570].map((y) => <option key={y} value={y}>พ.ศ. {y}</option>)}
-          </select>
+          <div style={css('display:flex;gap:6px;align-items:center;')}>
+            {stepBtn(-1)}
+            <select value={reportYear} onChange={(e) => setReportYear(+e.target.value)} style={css(inputStyle)}>
+              {YEARS.map((y) => <option key={y} value={y}>พ.ศ. {y}</option>)}
+            </select>
+            {stepBtn(1)}
+          </div>
         )}
       </div>
 

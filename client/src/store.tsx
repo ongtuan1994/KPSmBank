@@ -76,6 +76,9 @@ interface AppCtx {
   addCc: (name: string, dept: string) => Promise<CostCenter | null>;
   setCcDept: (id: number, dept: string) => Promise<void>;
   delCc: (id: number) => Promise<void>;
+  renameCc: (id: number, name: string) => Promise<void>;
+  renameDept: (from: string, to: string) => Promise<void>;
+  delDept: (name: string) => Promise<void>;
   setLimit: (value: number) => Promise<void>;
 
   // UI state
@@ -329,6 +332,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [refresh]
   );
 
+  const renameCc = useCallback(
+    async (id: number, name: string) => {
+      const n = name.trim();
+      if (!n) return;
+      await api.renameCostCenter(id, n);
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const renameDept = useCallback(
+    async (from: string, to: string) => {
+      const n = to.trim();
+      if (!n || n === from) return;
+      await api.renameDepartment(from, n);
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const delDept = useCallback(
+    async (name: string) => {
+      await api.deleteDepartment(name);
+      await refresh();
+    },
+    [refresh]
+  );
+
   // ---- limit ----
   const openLimit = useCallback(() => setModal('limit'), []);
   const setLimit = useCallback(
@@ -367,6 +398,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addCc,
     setCcDept,
     delCc,
+    renameCc,
+    renameDept,
+    delDept,
     setLimit,
     view,
     setView: setViewSafe,
