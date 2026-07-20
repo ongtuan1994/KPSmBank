@@ -1,13 +1,20 @@
-import { useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { css } from '../ui';
-import { money, money0, thaiDate, thaiDateFull } from '../lib/format';
+import { money, money0, thaiDate } from '../lib/format';
+import { balanceMap } from '../lib/compute';
 
 const MN = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 const MH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const MON_EN = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const UNA = 'ไม่ระบุแผนก';
 const YEARS = [2568, 2569, 2570];
 const pad = (n: number) => String(n).padStart(2, '0');
+// daily report print target: A4 portrait, even margins, one page
+const A4_W = 210, A4_H = 297;
+// narrower side margins: the report is width-bound, so every mm there buys font size
+const A4_MH = 8, A4_MV = 12;
+const SHEET_W = 950; // design width when printing: fills the A4 width at ~0.74 scale
 
 type ReportTab = 'daily' | 'monthly' | 'yearly';
 interface MonthGroup {
@@ -23,7 +30,10 @@ export function ReportsView() {
   const last = dates[dates.length - 1] || '2026-05-30';
 
   const [tab, setTab] = useState<ReportTab>('daily');
-  const [reportDate, setReportDate] = useState(last);
+  // daily report covers a date range; both ends default to the latest day, so
+  // it behaves as a single-day report until a wider range is picked
+  const [reportFrom, setReportFrom] = useState(last);
+  const [reportTo, setReportTo] = useState(last);
   const [reportMonth, setReportMonth] = useState(last.slice(0, 7));
   const [reportYear, setReportYear] = useState(2569);
   const [monthlyDetail, setMonthlyDetail] = useState(false);
@@ -34,9 +44,14 @@ export function ReportsView() {
   /* Step the period shown by the active tab: ±1 day / month / year. */
   const shift = (delta: number) => {
     if (tab === 'daily') {
-      const d = new Date(reportDate + 'T00:00:00');
-      d.setDate(d.getDate() + delta);
-      setReportDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+      // move the whole range, keeping its span
+      const step = (iso: string) => {
+        const d = new Date(iso + 'T00:00:00');
+        d.setDate(d.getDate() + delta);
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      };
+      setReportFrom(step(reportFrom));
+      setReportTo(step(reportTo));
     } else if (tab === 'monthly') {
       const [y, m] = reportMonth.split('-').map(Number);
       const d = new Date(y, m - 1 + delta, 1);
@@ -66,7 +81,7 @@ export function ReportsView() {
   const inputStyle = 'height:36px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:0 12px;font-family:inherit;font-size:14px;color:var(--ink);';
 
   return (
-    <div style={css('padding:30px 38px;')}>
+    <div className="report-page" style={css('padding:30px 38px;')}>
       <div className="no-print" style={css('display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;')}>
         <div>
           <div style={css('font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.4px;')}>รายงาน · REPORTS</div>
@@ -79,9 +94,12 @@ export function ReportsView() {
           {tabBtn('daily', 'รายวัน')}{tabBtn('monthly', 'รายเดือน')}{tabBtn('yearly', 'รายปี')}
         </div>
         {tab === 'daily' && (
-          <div style={css('display:flex;gap:6px;align-items:center;')}>
+          <div style={css('display:flex;gap:6px;align-items:center;flex-wrap:wrap;')}>
             {stepBtn(-1)}
-            <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} style={css(inputStyle)} />
+            <label style={css('display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted);')}>ตั้งแต่
+              <input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} style={css(inputStyle)} /></label>
+            <label style={css('display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted);')}>จนถึง
+              <input type="date" value={reportTo} min={reportFrom} onChange={(e) => setReportTo(e.target.value)} style={css(inputStyle)} /></label>
             {stepBtn(1)}
           </div>
         )}
@@ -110,24 +128,114 @@ export function ReportsView() {
         )}
       </div>
 
-      {tab === 'daily' && <DailyReport db={db} reportDate={reportDate} />}
+      {tab === 'daily' && <DailyReport db={db} from={reportFrom} to={reportTo} />}
       {tab === 'monthly' && <MonthlyReport db={db} reportMonth={reportMonth} det={monthlyDetail} ccDept={ccDept} />}
       {tab === 'yearly' && <YearlyReport db={db} reportYear={reportYear} ccDept={ccDept} />}
     </div>
   );
 }
 
-function DailyReport({ db, reportDate }: { db: ReturnType<typeof useApp>['db']; reportDate: string }) {
-  const rows = db.txns.filter((t) => t.date === reportDate).sort((a, b) => (a.ord || 0) - (b.ord || 0));
+function DailyReport({ db, from, to }: { db: ReturnType<typeof useApp>['db']; from: string; to: string }) {
+  // tolerate the ends being picked out of order
+  const lo = from <= to ? from : to;
+  const hi = from <= to ? to : from;
+  const rows = db.txns
+    .filter((t) => t.date >= lo && t.date <= hi)
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ord || 0) - (b.ord || 0)));
   const recv = rows.reduce((s, t) => s + (+t.recv || 0), 0);
   const pay = rows.reduce((s, t) => s + (+t.pay || 0), 0);
+
+  /* Heading runs by month: ประจำเดือน <ไทย> <พ.ศ.> (M/YYYY), widened to a span
+     when the range crosses a month boundary. */
+  const [dy, dm] = lo.split('-').map(Number);
+  const [ty, tm] = hi.split('-').map(Number);
+  const sameMonth = dy === ty && dm === tm;
+  const monthLabel = sameMonth
+    ? `ประจำเดือน ${MN[dm - 1]} ${dy + 543} (${dm}/${dy})`
+    : `ประจำเดือน ${MN[dm - 1]} ${dy + 543} – ${MN[tm - 1]} ${ty + 543} (${dm}/${dy}–${tm}/${ty})`;
+  const slug = sameMonth
+    ? `${MON_EN[dm - 1]}-${String(dy).slice(-2)}`
+    : `${MON_EN[dm - 1]}–${MON_EN[tm - 1]}-${String(ty).slice(-2)}`;
+  // spell out the covered days when the range is more than one
+  const rangeNote = lo === hi ? thaiDate(lo) : `${thaiDate(lo)} – ${thaiDate(hi)}`;
+
+  /* Print on ONE A4 portrait page: measure the sheet at the print design width,
+     then scale it into the page box. Same approach as the ใบสำคัญจ่าย. */
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ s: 1, w: SHEET_W, h: 0 });
+  useLayoutEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const pxPerMm = 96 / 25.4;
+    const measure = () => {
+      const prev = { w: el.style.width, mw: el.style.maxWidth, p: el.style.padding };
+      /* Every row prints on ONE line, so the sheet's width is whatever the
+         longest row needs — measure that instead of assuming a design width,
+         then scale the whole thing down to the page. Narrow days still get a
+         sensible minimum so a 2-row report isn't blown up huge. */
+      el.style.maxWidth = 'none';
+      el.style.width = 'max-content';
+      el.style.padding = '0';        // the @page margin supplies the paper margin
+      const w = Math.max(SHEET_W, el.offsetWidth);
+      const h = el.offsetHeight;
+      el.style.width = prev.w;
+      el.style.maxWidth = prev.mw;
+      el.style.padding = prev.p;
+      const s = Math.round(Math.min(
+        (A4_W - 2 * A4_MH) * pxPerMm / w,
+        (A4_H - 2 * A4_MV) * pxPerMm / h,
+      ) * 0.98 * 1000) / 1000;
+      setFit({ s, w, h });
+    };
+    measure();
+    document.fonts?.ready.then(measure).catch(() => {});
+  }, [lo, hi, rows.length]);
+
+  const noBreak = 'break-inside: avoid !important; page-break-inside: avoid !important; break-after: avoid !important; page-break-after: avoid !important;';
+  const printCss = `@media print {
+    @page { size: A4 portrait; margin: ${A4_MV}mm ${A4_MH}mm; }
+    html, body { height: auto !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; }
+    #root, #root > * { min-height: 0 !important; height: auto !important; display: block !important; }
+    main { padding: 0 !important; min-height: 0 !important; }
+    /* out-specify ".app-main > div { padding: 16px 14px }" from the 760px
+       breakpoint — an A4 portrait page box is ~703px wide, so it fires here */
+    .app-main > .report-page, .report-page { padding: 0 !important; overflow: hidden !important; ${noBreak} }
+    .report-fit { width: min(${Math.ceil(fit.w * fit.s) + 2}px, 100vw) !important; height: min(${Math.ceil(fit.h * fit.s) + 2}px, 100vh) !important; margin: 0 auto !important; overflow: hidden !important; ${noBreak} }
+    .report-sheet { transform: scale(${fit.s}); transform-origin: top left; width: ${fit.w}px !important; max-width: ${fit.w}px !important; margin: 0 !important; padding: 0 !important; border: none !important; box-shadow: none !important; background: #fff !important; overflow: visible !important; ${noBreak} }
+  }`;
+
+  const bmap = useMemo(() => balanceMap(db), [db]);
+
+  /* Bank the transfer went out through. Older entries may not carry it, so fall
+     back to the payee record — same resolution the ใบสำคัญจ่าย uses. */
+  const bankOf = (t: (typeof rows)[number]) => {
+    if (t.bank) return t.bank;
+    const p = db.payees.find((p) => p.status !== 'inactive' && (p.payTo === t.payTo || p.shop === t.payTo));
+    return p?.bank || '—';
+  };
+  const closing = rows.length
+    ? bmap[rows[rows.length - 1].id]
+    : (() => {
+        const prior = db.txns.filter((t) => t.date && t.date < lo)
+          .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ord || 0) - (b.ord || 0)));
+        return prior.length ? bmap[prior[prior.length - 1].id] : db.opening;
+      })();
   return (
-    <div className="sheet" style={css('background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:30px 34px;max-width:1000px;')}>
-      <div style={css('text-align:center;margin-bottom:6px;font-weight:700;font-size:19px;')}>รายงานการโอนเงินรายวัน</div>
-      <div style={css('text-align:center;color:var(--muted);font-size:14px;margin-bottom:20px;')}>แพปลา KPS · {thaiDateFull(reportDate)}</div>
+    <div className="report-fit">
+    <style>{printCss}</style>
+    {/* rows never wrap, so on screen the sheet scrolls sideways if it has to;
+        in print it is scaled to the page instead */}
+    <div ref={sheetRef} className="sheet report-sheet" style={css('background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:30px 34px;max-width:1000px;overflow-x:auto;')}>
+      {/* corner slug: short month-year + a dotted page number to fill in by hand */}
+      <div style={css('text-align:right;font-size:13px;font-weight:600;letter-spacing:.3px;margin-bottom:2px;')}>
+        {slug} / Page <span style={css('color:var(--muted);letter-spacing:1.5px;')}>............</span>
+      </div>
+      <div style={css('text-align:center;margin-bottom:6px;font-weight:700;font-size:19px;')}>รายการโอน Bualuang Mbanking</div>
+      <div style={css('text-align:center;font-size:15px;font-weight:600;margin-bottom:2px;')}>{monthLabel}</div>
+      <div style={css('text-align:center;color:var(--muted);font-size:13px;margin-bottom:18px;')}>{rangeNote}</div>
       <table style={css('width:100%;border-collapse:collapse;font-size:13px;')}>
         <thead><tr style={css('border-bottom:2px solid var(--ink);text-align:left;')}>
-          <th style={css('padding:8px 8px;font-weight:600;')}>Voucher</th><th style={css('padding:8px;font-weight:600;white-space:nowrap;')}>วันที่</th><th style={css('padding:8px;font-weight:600;')}>ชื่อบัญชี</th><th style={css('padding:8px;font-weight:600;')}>รายละเอียด</th><th style={css('padding:8px;font-weight:600;')}>จ่ายให้</th><th style={css('padding:8px;font-weight:600;text-align:right;')}>รับ</th><th style={css('padding:8px;font-weight:600;text-align:right;')}>จ่าย</th>
+          <th style={css('padding:8px 8px;font-weight:600;')}>Voucher</th><th style={css('padding:8px;font-weight:600;white-space:nowrap;')}>วันที่</th><th style={css('padding:8px;font-weight:600;')}>ชื่อบัญชี</th><th style={css('padding:8px;font-weight:600;')}>รายละเอียด</th><th style={css('padding:8px;font-weight:600;')}>จ่ายให้</th><th style={css('padding:8px;font-weight:600;white-space:nowrap;')}>BANK</th><th style={css('padding:8px;font-weight:600;text-align:right;')}>รับ</th><th style={css('padding:8px;font-weight:600;text-align:right;')}>จ่าย</th><th style={css('padding:8px;font-weight:600;text-align:right;white-space:nowrap;')}>คงเหลือ</th>
         </tr></thead>
         <tbody>
           {rows.map((t) => (
@@ -135,18 +243,21 @@ function DailyReport({ db, reportDate }: { db: ReturnType<typeof useApp>['db']; 
               <td style={css("padding:7px 8px;font-family:'IBM Plex Mono',monospace;font-size:12px;white-space:nowrap;")}>{t.voucher || '—'}</td>
               <td style={css('padding:7px 8px;white-space:nowrap;color:var(--muted);')}>{thaiDate(t.date)}</td>
               <td style={css('padding:7px 8px;white-space:nowrap;')}>{t.cc}</td>
-              <td style={css('padding:7px 8px;')}>{t.detail}</td>
-              <td style={css('padding:7px 8px;color:var(--muted);')}>{t.payTo || '—'}</td>
+              <td style={css('padding:7px 8px;white-space:nowrap;')}>{t.detail}</td>
+              <td style={css('padding:7px 8px;color:var(--muted);white-space:nowrap;')}>{t.payTo || '—'}</td>
+              <td style={css('padding:7px 8px;white-space:nowrap;font-weight:600;font-size:12.5px;')}>{bankOf(t)}</td>
               <td style={css("padding:7px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;")}>{money0(t.recv)}</td>
               <td style={css("padding:7px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;")}>{money0(t.pay)}</td>
+              <td style={css("padding:7px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap;" + (bmap[t.id] < 0 ? 'color:var(--danger);' : ''))}>{money(bmap[t.id])}</td>
             </tr>
           ))}
         </tbody>
-        <tfoot><tr style={css('border-top:2px solid var(--ink);font-weight:700;')}><td colSpan={5} style={css('padding:10px 8px;')}>รวม</td><td style={css("padding:10px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--pri);")}>{money(recv)}</td><td style={css("padding:10px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--acc);")}>{money(pay)}</td></tr></tfoot>
+        <tfoot><tr style={css('border-top:2px solid var(--ink);font-weight:700;')}><td colSpan={6} style={css('padding:10px 8px;')}>รวม <span style={css('font-weight:400;font-size:12px;color:var(--muted);')}>· คงเหลือยกไป</span></td><td style={css("padding:10px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--pri);")}>{money(recv)}</td><td style={css("padding:10px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--acc);")}>{money(pay)}</td><td style={css("padding:10px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap;" + (closing < 0 ? 'color:var(--danger);' : 'color:var(--pri-d);'))}>{money(closing)}</td></tr></tfoot>
       </table>
       <div style={css('display:flex;justify-content:space-around;margin-top:60px;color:var(--muted);font-size:13px;text-align:center;')}>
         <div>__________________<br />ผู้จัดทำ</div><div>__________________<br />ผู้ตรวจสอบ</div><div>__________________<br />ผู้อนุมัติ</div>
       </div>
+    </div>
     </div>
   );
 }
